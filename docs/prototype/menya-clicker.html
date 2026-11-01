@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>麺屋クリッカー</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap">
+<style>
+/* Layout: one-screen night ramen stall — tally on top, one cooking station at a time via tabs, bowl + menu at the bottom, 帳場 sheet for owner/menu/achievements/暖簾分け */
+:root{
+  --ai:#151d30;        /* 藍 night noren */
+  --ai-2:#1e2841;      /* raised panel */
+  --ai-3:#2b3756;      /* grooves */
+  --paper:#f2ead9;     /* lantern paper */
+  --muted:#a7adbf;
+  --broth:#e8a73c;     /* golden broth accent */
+  --noodle:#f3dc8c;
+  --pork:#b9694a;
+  --bad:#e0685a;
+  --scrim:rgba(8,12,22,.66);
+  --f-display:"Dela Gothic One","Hiragino Sans","Noto Sans JP",sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  color-scheme:dark;
+}
+html{height:100%;box-sizing:border-box}
+*,*::before,*::after{box-sizing:border-box}
+body{height:100%;margin:0;background:var(--ai);color:var(--paper);font-family:var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#app{height:100%;max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:8px;padding-block:10px}
+button{font:inherit;color:inherit;touch-action:manipulation;cursor:pointer}
+button:focus-visible{outline:2px solid var(--broth);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+.top{display:flex;align-items:center;gap:12px}
+.brand{font-family:var(--f-display);font-size:16px;line-height:1.05;writing-mode:vertical-rl;background:var(--paper);color:var(--ai);padding:7px 5px;border-radius:2px;letter-spacing:.12em}
+.tally{flex:1;display:grid;grid-template-columns:auto 1fr;gap:4px 14px;align-items:end;min-width:0}
+.tally>div{min-width:0}
+.tally small{display:block;font-size:11px;color:var(--muted);letter-spacing:.1em}
+.tally b{display:block;font-family:var(--f-display);font-weight:400;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tally .cnt b{font-size:32px;color:var(--paper)}
+.tally .yen b{font-size:22px;color:var(--broth)}
+.tally b .u{font-family:var(--f-body);font-weight:700;font-size:13px;margin-left:3px;color:var(--muted)}
+.chou{position:relative;flex:none;border:1px solid var(--paper);background:none;border-radius:8px;padding:5px 9px;line-height:1.2;text-align:center}
+.chou b{display:block;font-size:13px}
+.chou small{display:block;font-size:10px;color:var(--muted)}
+.chou .dot,.tabs button .dot{position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:var(--broth);border:2px solid var(--ai);display:none}
+.chou.has .dot,.tabs button.has .dot{display:block}
+
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tabs button{position:relative;border:1px solid var(--ai-3);background:var(--ai-2);border-radius:8px;padding:6px 4px;display:flex;flex-direction:column;align-items:center;gap:1px}
+.tabs button .t{font-weight:700;font-size:14px}
+.tabs button .c{font-size:11px;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--paper);color:var(--ai);border-color:var(--paper)}
+.tabs button[aria-selected="true"] .c{color:var(--ai)}
+
+.stage{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--ai-2);border:1px solid var(--ai-3);border-radius:12px;overflow:hidden}
+.pad{flex:1;min-height:0;position:relative;touch-action:none;display:grid;place-items:center;cursor:pointer}
+.pad[hidden]{display:none!important}
+.pad svg{width:min(76%,290px);height:auto;max-height:88%;pointer-events:none;overflow:visible}
+.how{position:absolute;top:8px;left:0;right:0;text-align:center;font-weight:700;font-size:13px;color:var(--muted);letter-spacing:.08em;pointer-events:none}
+.gauge{display:flex;align-items:center;gap:10px;padding:7px 12px;border-top:1px solid var(--ai-3)}
+.gauge .lab{font-size:12px;font-weight:700;white-space:nowrap}
+.gauge .lab.full{color:var(--bad)}
+.bar{flex:1;height:10px;background:var(--ai-3);border-radius:5px;overflow:hidden;min-width:40px}
+.bar i{display:block;height:100%;width:100%;background:var(--broth);transform-origin:left;transform:scaleX(0)}
+.bar.full i{background:var(--bad)}
+.crew{display:flex;flex-direction:column;gap:6px;padding:2px 12px 9px}
+.crew .who{font-size:12px;color:var(--muted)}
+.crew .who b{color:var(--paper);font-size:14px;margin-right:6px}
+.full{color:var(--bad);font-weight:700}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.up{border:0;border-radius:8px;background:var(--broth);color:var(--ai);padding:6px 8px;text-align:center;line-height:1.3;min-width:0}
+.up b{display:block;font-size:14px}
+.up small{display:block;font-size:11px;font-weight:700}
+.up .note{font-weight:400;font-size:10px;opacity:.85}
+.up:disabled{background:var(--ai-3);color:var(--muted);cursor:default}
+.up.sm{flex:none;padding:4px 10px}
+.up.sm b{font-size:12px}
+
+/* station animations */
+#swirl{transform-origin:100px 100px}
+.dough{transform-origin:100px 150px;transition:transform .09s}
+.pad.hit .dough{transform:scale(1.12,.82)}
+.cutter{transition:transform .12s}
+.pad.hit .cutter{transform:translateY(40px)}
+.knife{transition:transform .14s}
+.pad.dn .knife{transform:translateY(44px)}
+
+/* bowl */
+.pass{display:flex;flex-wrap:wrap;align-items:center;gap:7px 12px;background:var(--ai-2);border:1px solid var(--ai-3);border-radius:12px;padding:8px 12px}
+.menus{flex-basis:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.menus button{border:1px solid var(--ai-3);background:var(--ai);border-radius:7px;padding:3px 2px;line-height:1.25;min-width:0}
+.menus button b{display:block;font-size:12.5px}
+.menus button small{display:block;font-size:10px;color:var(--muted)}
+.menus button[aria-pressed="true"]{border-color:var(--broth);background:var(--broth);color:var(--ai)}
+.menus button[aria-pressed="true"] small{color:var(--ai)}
+.menus button.lock{opacity:.5}
+.bowl{border:0;background:none;padding:0;width:136px;height:88px;flex:none;position:relative}
+.bowl svg{width:100%;height:100%}
+.bowl.ok svg{filter:drop-shadow(0 0 8px rgba(232,167,60,.45))}
+.bowl.pop{animation:pop .4s}
+.bowl.no{animation:shake .3s}
+@keyframes pop{35%{transform:scale(1.1)}}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.mats{flex:1;display:flex;flex-direction:column;gap:3px;font-size:13px;min-width:0}
+.mat{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px dashed var(--ai-3);padding-bottom:2px}
+.mat i{font-style:normal;font-size:11px;color:var(--broth);font-weight:700;margin-left:4px}
+.mat b{font-family:var(--f-display);font-weight:400;font-size:16px}
+.mat.zero b{color:var(--bad)}
+.tip{font-size:11px;color:var(--muted)}
+.rcrew{flex-basis:100%;display:grid;grid-template-columns:1fr auto auto;gap:3px 6px;align-items:center;border-top:1px solid var(--ai-3);padding-top:7px}
+.rcrew .who{font-size:12px;color:var(--muted);min-width:0;line-height:1.35}
+.rcrew .who b{color:var(--paper);font-size:13px;margin-right:4px}
+.rcrew .note{grid-column:1/-1;font-size:10.5px;color:var(--muted)}
+@media (max-height:720px){.bowl{width:112px;height:72px}.mat b{font-size:14px}.tally .cnt b{font-size:26px}}
+
+/* 帳場 sheet */
+.sheet{position:fixed;inset:0;z-index:40;background:var(--scrim);display:flex;align-items:flex-end;justify-content:center}
+.sh{width:100%;max-width:520px;max-height:84%;display:flex;flex-direction:column;background:var(--ai-2);border:1px solid var(--ai-3);border-bottom:0;border-radius:16px 16px 0 0;
+  padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));padding-bottom:env(safe-area-inset-bottom,0px)}
+.shhead{display:flex;align-items:center;gap:6px;padding-block:10px 6px}
+.shtabs{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.shtabs button{border:0;background:none;border-bottom:2px solid transparent;padding:6px 0;font-weight:700;font-size:13px;color:var(--muted);white-space:nowrap}
+.shtabs button[aria-selected="true"]{color:var(--paper);border-bottom-color:var(--broth)}
+.close{border:1px solid var(--ai-3);background:none;border-radius:50%;width:32px;height:32px;font-size:16px;line-height:1;flex:none}
+.shbody{overflow:auto;padding-block:6px 16px;display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch}
+.card{background:var(--ai);border:1px solid var(--ai-3);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.card h3{margin:0;font-family:var(--f-display);font-weight:400;font-size:20px}
+.card h3 small{font-family:var(--f-body);font-size:12px;color:var(--muted);margin-left:6px}
+.card p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.6}
+.card p b{color:var(--paper)}
+.card .up{padding:9px}
+.ghost{border:1px solid var(--ai-3);background:none;border-radius:8px;padding:8px;font-size:12px;color:var(--muted)}
+.mrow{display:grid;grid-template-columns:auto 1fr auto;gap:2px 12px;align-items:center}
+.mrow .nm{font-family:var(--f-display);font-size:18px}
+.mrow .rc{font-size:12px;color:var(--muted)}
+.mrow .pr{font-family:var(--f-display);font-size:16px;color:var(--broth);text-align:right}
+.mrow .ct{grid-column:1/-1;font-size:11px;color:var(--muted)}
+.mrow.lock .nm,.mrow.lock .pr{color:var(--muted)}
+.achsum{display:flex;align-items:baseline;gap:8px}
+.achsum b{font-family:var(--f-display);font-size:26px;font-weight:400}
+.achsum span{font-size:12px;color:var(--muted)}
+.achgrp{font-size:11px;color:var(--muted);letter-spacing:.12em;padding-top:4px}
+.achs{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px}
+.ach{border:1px solid var(--ai-3);border-radius:8px;padding:6px 8px;background:var(--ai)}
+.ach b{display:block;font-size:13px}
+.ach small{display:block;font-size:10.5px;color:var(--muted)}
+.ach.got{border-color:var(--broth)}
+.ach.got b::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--broth);margin-right:5px;vertical-align:middle}
+.ach:not(.got) b{color:var(--muted)}
+
+.fl{position:fixed;pointer-events:none;font-family:var(--f-display);font-size:17px;color:var(--broth);z-index:20;animation:fl .9s ease-out forwards;white-space:nowrap;text-shadow:0 1px 0 var(--ai)}
+.fl.big{font-size:22px;color:var(--paper)}
+.fl.bad{font-family:var(--f-body);font-weight:700;font-size:13px;color:var(--bad)}
+@keyframes fl{to{transform:translateY(-40px);opacity:0}}
+.toast{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translate(-50%,-8px);z-index:50;background:var(--paper);color:var(--ai);border-radius:22px;padding:7px 16px;font-size:13px;font-weight:700;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;max-width:calc(100% - 32px);text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast small{display:block;font-size:10.5px;font-weight:400}
+@media (prefers-reduced-motion:reduce){.bowl.pop,.bowl.no,.fl{animation:none}.fl{opacity:0}}
+</style>
+
+<div id="app">
+  <div class="top">
+    <div class="brand">麺屋</div>
+    <div class="tally">
+      <div class="cnt"><small>作ったラーメン</small><b class="num"><span id="count">0</span><span class="u">杯</span></b></div>
+      <div class="yen"><small>売上</small><b class="num"><span id="yen">0</span><span class="u">円</span></b></div>
+    </div>
+    <button class="chou" id="chou"><span class="dot"></span><b>帳場</b><small class="num" id="chou-s">店主Lv1</small></button>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" data-k="soup" aria-selected="true"><span class="dot"></span><span class="t">スープ</span><span class="c num" id="tc-soup">0</span></button>
+    <button role="tab" data-k="noodle" aria-selected="false"><span class="dot"></span><span class="t">麺</span><span class="c num" id="tc-noodle">0</span></button>
+    <button role="tab" data-k="chashu" aria-selected="false"><span class="dot"></span><span class="t">具</span><span class="c num" id="tc-chashu">0</span></button>
+  </div>
+
+  <div class="stage">
+    <div class="pad" id="pad-soup" aria-label="スープ：指でぐるぐる回す">
+      <div class="how">指で ぐるぐる 回す</div>
+      <svg viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="92" fill="#8d97ad"/>
+        <circle cx="100" cy="100" r="84" fill="#b9c0d1"/>
+        <circle cx="100" cy="100" r="78" fill="var(--broth)"/>
+        <g id="swirl">
+          <path d="M100 100 m0 -8 a8 8 0 1 1 -8 8 a16 16 0 1 1 16 16 a26 26 0 1 1 -26 -26 a38 38 0 1 1 38 38 a52 52 0 1 1 -52 -52" fill="none" stroke="#c98a2a" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+          <circle cx="140" cy="80" r="5" fill="#f6cf7c"/><circle cx="62" cy="128" r="4" fill="#f6cf7c"/>
+          <circle cx="120" cy="146" r="3" fill="#f6cf7c"/><circle cx="74" cy="66" r="3.5" fill="#f6cf7c"/>
+          <g><ellipse cx="100" cy="46" rx="14" ry="8" fill="#d6c7a8"/><rect x="96" y="-14" width="8" height="58" rx="4" fill="#d6c7a8"/></g>
+        </g>
+      </svg>
+    </div>
+    <div class="pad" id="pad-noodle" hidden aria-label="麺：タップ">
+      <div class="how">タップ で 麺を打つ</div>
+      <svg viewBox="0 0 200 200">
+        <rect x="14" y="150" width="172" height="26" rx="4" fill="#7a5a3c"/>
+        <rect x="14" y="150" width="172" height="5" fill="#8f6c4a"/>
+        <ellipse class="dough" cx="100" cy="134" rx="62" ry="18" fill="var(--noodle)"/>
+        <g stroke="#e7c870" stroke-width="2" stroke-linecap="round"><line x1="140" y1="168" x2="176" y2="168"/><line x1="140" y1="162" x2="176" y2="162"/></g>
+        <g class="cutter"><rect x="40" y="40" width="120" height="16" rx="6" fill="#c9cfdb"/><rect x="88" y="10" width="24" height="34" rx="5" fill="#4a3426"/><rect x="44" y="56" width="112" height="6" fill="#9aa2b4"/></g>
+      </svg>
+    </div>
+    <div class="pad" id="pad-chashu" hidden aria-label="具：上から下へスワイプ">
+      <div class="how">↓ 上から下へ スワイプ で 切る</div>
+      <svg viewBox="0 0 200 200">
+        <rect x="10" y="150" width="180" height="30" rx="4" fill="#7a5a3c"/>
+        <rect x="24" y="92" width="96" height="60" rx="26" fill="#8a4a32"/>
+        <ellipse cx="120" cy="122" rx="24" ry="30" fill="#e2b29a"/>
+        <ellipse cx="120" cy="122" rx="16" ry="20" fill="none" stroke="var(--pork)" stroke-width="3"/>
+        <ellipse cx="120" cy="122" rx="7" ry="9" fill="none" stroke="var(--pork)" stroke-width="2.4"/>
+        <g id="slices"></g>
+        <g class="knife"><rect x="140" y="30" width="10" height="84" rx="2" fill="#c9cfdb"/><rect x="136" y="6" width="18" height="28" rx="4" fill="#4a3426"/></g>
+      </svg>
+    </div>
+    <div class="gauge">
+      <span class="lab num" id="g-lab">スープ 0/10</span>
+      <div class="bar" id="bar"><i id="prog"></i></div>
+      <button class="up sm" id="widen"><b>枠+5</b><small class="num" id="widen-c">1,500円</small></button>
+    </div>
+    <div class="crew">
+      <div class="who"><b id="crew-n">弟子 0人</b><span id="crew-r"></span></div>
+      <div class="btns">
+        <button class="up" id="hire"><b>増やす</b><small class="num" id="hire-c">2,000円</small></button>
+        <button class="up" id="train"><b>鍛える</b><small class="num" id="train-c">3,000円</small><small class="note num" id="train-n"></small></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="pass">
+    <div class="menus" id="menus"></div>
+    <button class="bowl" id="bowl" aria-label="丼をタップしてラーメンを作る">
+      <svg viewBox="0 0 150 96">
+        <ellipse cx="75" cy="30" rx="66" ry="14" fill="#2b3756"/>
+        <g id="filled" opacity="0">
+          <ellipse id="bowl-soup" cx="75" cy="30" rx="60" ry="11" fill="var(--broth)"/>
+          <g stroke="var(--noodle)" stroke-width="2.2" fill="none" stroke-linecap="round"><path d="M28 31 q8 -6 16 0 t16 0 t16 0"/><path d="M36 35 q8 -6 16 0 t16 0 t16 0"/></g>
+          <ellipse cx="98" cy="27" rx="13" ry="7" fill="#e2b29a"/><ellipse cx="98" cy="27" rx="8" ry="4" fill="none" stroke="var(--pork)" stroke-width="1.6"/>
+        </g>
+        <path d="M9 30 Q14 82 75 88 Q136 82 141 30 Q120 44 75 44 Q30 44 9 30Z" fill="var(--paper)"/>
+        <path d="M18 50 l6 -5 l6 5 l6 -5 l6 5 l6 -5 l6 5 l6 -5 l6 5 l6 -5 l6 5 l6 -5 l6 5 l6 -5 l6 5 l6 -5 l6 5 l6 -5 l6 5" stroke="#c8322b" stroke-width="2" fill="none"/>
+        <ellipse cx="75" cy="30" rx="66" ry="14" fill="none" stroke="var(--paper)" stroke-width="3"/>
+        <rect x="58" y="86" width="34" height="6" rx="2" fill="#d8ccb4"/>
+      </svg>
+    </button>
+    <div class="mats">
+      <div class="mat" id="m-soup"><span>スープ<i></i></span><b class="num">0</b></div>
+      <div class="mat" id="m-noodle"><span>麺<i></i></span><b class="num">0</b></div>
+      <div class="mat" id="m-chashu"><span>具<i></i></span><b class="num">0</b></div>
+      <div class="tip" id="tip"></div>
+    </div>
+    <div class="rcrew">
+      <div class="who"><b id="rc-n">盛り付け弟子 0人</b><span id="rc-r"></span></div>
+      <button class="up sm" id="rhire"><b>増やす</b><small class="num" id="rhire-c">5,000円</small></button>
+      <button class="up sm" id="rtrain"><b>鍛える</b><small class="num" id="rtrain-c">8,000円</small></button>
+      <div class="note num" id="rtrain-n"></div>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="sh" role="dialog" aria-label="帳場">
+    <div class="shhead">
+      <div class="shtabs" id="shtabs">
+        <button data-p="owner" aria-selected="true">店主</button>
+        <button data-p="menu" aria-selected="false">献立</button>
+        <button data-p="ach" aria-selected="false">実績</button>
+        <button data-p="noren" aria-selected="false">暖簾分け</button>
+      </div>
+      <button class="close" id="close" aria-label="閉じる">×</button>
+    </div>
+    <div class="shbody" id="shbody"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+/* ============ 定義 ============ */
+const K=['soup','noodle','chashu'];
+const JP={soup:'スープ',noodle:'麺',chashu:'具',ramen:'盛り付け'};
+const NEED={soup:1.5, noodle:1, chashu:1};   // 手作業：回転数 / タップ数 / スワイプ数 で1回
+const BASE_CAP=10;
+const KEY='menya-clicker-v3', OLD_KEY='menya-clicker-v2';
+const NOREN_BONUS=.10;            // 暖簾1枚で売上+10%
+const NOREN_UNIT=500000;          // 通算売上 50万×n² 円で暖簾n枚
+
+// 献立：材料の比率と値段。unlock＝必要な実績数
+const MENUS=[
+  {id:'shoyu',   name:'正油',    need:{soup:1,noodle:1,chashu:1}, price:800,  unlock:0,  color:'#c98a3a'},
+  {id:'shio',    name:'塩',      need:{soup:2,noodle:1,chashu:1}, price:1200, unlock:5,  color:'#ead9a6'},
+  {id:'miso',    name:'味噌',    need:{soup:1,noodle:2,chashu:1}, price:1250, unlock:15, color:'#c46f2e'},
+  {id:'tonkotsu',name:'とんこつ', need:{soup:2,noodle:1,chashu:3}, price:2000, unlock:30, color:'#efe6d2'},
+];
+const MB=Object.fromEntries(MENUS.map(m=>[m.id,m]));
+
+// 弟子：3材料は同じ設定。ラーメン本体は盛り付け弟子（増やす・鍛えるのみ）
+const MAT={base:2000,k:1.15,rate:.1,lvUp:.5,lvHire:.3,trainBase:3000,trainK:1.9,capStep:10,capBase:400,capK:1.45}; // 枠は安く大きく
+const CREW={
+  soup:{name:'弟子',...MAT}, noodle:{name:'弟子',...MAT}, chashu:{name:'弟子',...MAT},
+  ramen:{name:'盛り付け弟子',base:30000,k:1.25,rate:.05,lvUp:.5,lvHire:.3,trainBase:60000,trainK:2.2}, // 重め：20秒に1杯
+};
+// 盛り付け弟子は献立ごとに配置（レベルは全献立で共通＝lv.ramen）。値段は献立の値段に比例
+MENUS.forEach(m=>{CREW['r_'+m.id]={...CREW.ramen,name:m.name+'の盛り付け弟子',base:Math.round(CREW.ramen.base*m.price/800/1000)*1000,menu:m.id};});
+const lvKey=k=>CREW[k]&&CREW[k].menu?'ramen':k;
+const ramenTotal=(s=S)=>MENUS.reduce((a,m)=>a+(s.crew['r_'+m.id]||0),0);
+// 店主：レベル＝1回の作業でできる数（丼は1タップで最大その杯数）
+const OWNER={base:3000,k:2.4};
+
+/* ============ 実績 ============ */
+const ACH=[];
+function A(grp,id,name,desc,test){ACH.push({grp,id,name,desc,test});}
+const kanji=n=>n.toLocaleString('ja-JP');
+[[1,'開店の一杯'],[10,'十杯の壁'],[50,'のれんが馴染む'],[100,'百杯達成'],[500,'行列のできる店'],[1000,'千杯の店'],[5000,'地元の名店'],[10000,'万杯ラーメン'],[50000,'ラーメン街道'],[100000,'伝説の屋台']]
+  .forEach(([n,t])=>A('杯数','r'+n,t,'通算'+kanji(n)+'杯つくる',s=>s.ramen>=n));
+MENUS.forEach(m=>[[10,'の常連'],[100,'の看板'],[1000,'の極み']].forEach(([n,t])=>A('献立','m'+m.id+n,m.name+t,m.name+'ラーメンを'+kanji(n)+'杯',s=>(s.byMenu[m.id]||0)>=n)));
+[[1e4,'はじめての一万円'],[1e5,'十万円の売上'],[1e6,'百万円の店'],[1e7,'一千万の店'],[1e8,'億の店']]
+  .forEach(([n,t])=>A('売上','y'+n,t,'通算売上'+kanji(n)+'円',s=>s.earned>=n));
+[['soup','鍋番','鍋の主'],['noodle','麺打ち','麺打ち名人'],['chashu','包丁さばき','焼豚職人'],['bowl','盛り付け上手','盛り付けの鬼']]
+  .forEach(([k,a,b])=>{const w=k==='bowl'?'丼を手で':JP[k]+'を手で';A('手作業','h'+k+100,a,w+'100回',s=>(s.hand[k]||0)>=100);A('手作業','h'+k+1000,b,w+'1,000回',s=>(s.hand[k]||0)>=1000);});
+['soup','noodle','chashu','ramen'].forEach(k=>{
+  const nm=k==='ramen'?'盛り付け弟子':JP[k]+'の弟子';
+  [1,10,25].forEach(n=>A('弟子','c'+k+n,nm+' '+n+'人',nm+'を'+(k==='ramen'?'全献立で':'')+n+'人にする',s=>(k==='ramen'?ramenTotal(s):(s.crew[k]||0))>=n));
+  [5,10].forEach(n=>A('弟子','l'+k+n,nm+' Lv'+n,nm+'をLv'+n+'まで鍛える',s=>(s.lv[k]||1)>=n));
+});
+K.forEach(k=>[20,50].forEach(n=>A('置き場','p'+k+n,JP[k]+'置き場 '+n,JP[k]+'を'+n+'個置けるようにする',s=>cap(k,s)>=n)));
+[3,5,10].forEach(n=>A('店主','o'+n,'店主Lv'+n,'店主をLv'+n+'まで鍛える',s=>s.owner>=n));
+[[1,'はじめての暖簾分け'],[3,'のれん会'],[10,'ラーメン一門']].forEach(([n,t])=>A('暖簾分け','n'+n,t,'暖簾分けを'+n+'回',s=>s.norenCount>=n));
+
+/* ============ 状態 ============ */
+const $=id=>document.getElementById(id);
+let S;
+function runState(){return{yen:0,stock:{soup:0,noodle:0,chashu:0},prog:{soup:0,noodle:0,chashu:0},crew:{},lv:{},capLv:{},acc:{},owner:1};}
+function fresh(){return{v:3,tab:'soup',menu:'shoyu',ramen:0,earned:0,byMenu:{},hand:{},ach:{},achSeen:0,noren:0,norenCount:0,...runState()};}
+function load(){
+  try{const j=JSON.parse(localStorage.getItem(KEY));if(j&&j.v===3)return Object.assign(fresh(),j);}catch(e){}
+  try{ // v2 からの引き継ぎ
+    const o=JSON.parse(localStorage.getItem(OLD_KEY));
+    if(o&&o.v===2){const s=fresh();Object.assign(s,{ramen:o.ramen||0,yen:o.yen||0,earned:(o.ramen||0)*800,byMenu:{shoyu:o.ramen||0},
+      stock:o.stock||s.stock,crew:o.crew||{},lv:o.lv||{},capLv:o.capLv||{}});return s;}
+  }catch(e){}
+  return null;
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+
+/* ============ 計算 ============ */
+const fmtY=n=>Math.ceil(n).toLocaleString('ja-JP');
+const crewN=(k,s=S)=>s.crew[k]||0;
+const lvOf=(k,s=S)=>s.lv[lvKey(k)]||1;
+const capLv=(k,s=S)=>s.capLv[k]||0;
+function cap(k,s=S){return BASE_CAP+capLv(k,s)*CREW[k].capStep;}
+const hireCostAt=(k,lv)=>Math.ceil(CREW[k].base*Math.pow(CREW[k].k,crewN(k))*(1+CREW[k].lvHire*(lv-1)));
+const crewCost=k=>hireCostAt(k,lvOf(k));
+const trainCost=k=>Math.ceil(CREW[k].trainBase*Math.pow(CREW[k].trainK,lvOf(k)-1));
+const widenCost=k=>Math.ceil(CREW[k].capBase*Math.pow(CREW[k].capK,capLv(k)));
+const rateAt=(k,lv)=>crewN(k)*CREW[k].rate*(1+CREW[k].lvUp*(lv-1));
+const crewRate=k=>rateAt(k,lvOf(k));
+const ownerCost=()=>Math.ceil(OWNER.base*Math.pow(OWNER.k,S.owner-1));
+const achCount=()=>ACH.filter(a=>S.ach[a.id]).length;
+const unlocked=m=>achCount()>=m.unlock;
+const menu=()=>MB[S.menu];
+const priceOf=m=>Math.round(m.price*(1+NOREN_BONUS*S.noren));
+const norenTotal=e=>Math.floor(Math.sqrt(e/NOREN_UNIT));
+const norenGain=()=>Math.max(0,norenTotal(S.earned)-S.noren);
+const canMake=m=>Math.min(...K.map(k=>Math.floor(S.stock[k]/m.need[k])));
+function pay(c){if(S.yen<c)return false;S.yen-=c;return true;}
+
+/* ============ 演出 ============ */
+function floatAt(el,text,cls,x,y){
+  const r=el.getBoundingClientRect();
+  const f=document.createElement('div');f.className='fl '+(cls||'');f.textContent=text;
+  f.style.left=((x??r.left+r.width/2)-24)+'px';f.style.top=((y??r.top+r.height/3)-10)+'px';
+  document.body.appendChild(f);setTimeout(()=>f.remove(),950);
+}
+function flash(el,cls,ms){el.classList.remove('hit','dn');void el.offsetWidth;el.classList.add(cls);clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove(cls),ms||110);}
+const toastQ=[];let toastBusy=false;
+function toast(html){toastQ.push(html);if(!toastBusy)nextToast();}
+function nextToast(){
+  const t=$('toast');const h=toastQ.shift();
+  if(!h){toastBusy=false;return;}
+  toastBusy=true;t.innerHTML=h;t.classList.add('show');
+  setTimeout(()=>{t.classList.remove('show');setTimeout(nextToast,260);},1900);
+}
+
+/* ============ 手作業 ============ */
+function addProg(k,amount,x,y){
+  if(S.stock[k]>=cap(k)){
+    S.prog[k]=0;const now=Date.now();
+    if(!addProg.t||now-addProg.t>700){addProg.t=now;floatAt($('pad-'+k),JP[k]+'はもう置けない（'+cap(k)+'個まで）','bad',x,y);}
+    render();return;
+  }
+  S.prog[k]+=amount;
+  if(S.prog[k]>=1-1e-9){
+    S.prog[k]=0;
+    const add=Math.min(S.owner,cap(k)-S.stock[k]);
+    S.stock[k]+=add;S.hand[k]=(S.hand[k]||0)+add;
+    floatAt($('pad-'+k),JP[k]+' +'+add,'',x,y);
+  }
+  render();
+}
+let soupRot=0;
+function spin(d){soupRot+=d;$('swirl').style.transform=`rotate(${soupRot}rad)`;}
+(function(){ // スープ：ぐるぐる（左右どちらでも）
+  const pad=$('pad-soup');let last=null;
+  const ang=e=>{const r=pad.getBoundingClientRect();const dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);return{a:Math.atan2(dy,dx),d:Math.hypot(dx,dy)};};
+  pad.addEventListener('pointerdown',e=>{e.preventDefault();last=ang(e).a;try{pad.setPointerCapture(e.pointerId);}catch(_){}});
+  pad.addEventListener('pointermove',e=>{
+    if(last===null)return;const p=ang(e);if(p.d<24){last=p.a;return;}
+    let d=p.a-last;if(d>Math.PI)d-=2*Math.PI;if(d<-Math.PI)d+=2*Math.PI;last=p.a;
+    spin(d);addProg('soup',Math.abs(d)/(2*Math.PI*NEED.soup),e.clientX,e.clientY);
+  });
+  const end=()=>{last=null;};pad.addEventListener('pointerup',end);pad.addEventListener('pointercancel',end);
+})();
+$('pad-noodle').addEventListener('pointerdown',e=>{e.preventDefault();flash(e.currentTarget,'hit');addProg('noodle',1/NEED.noodle,e.clientX,e.clientY);});
+(function(){ // 具：上から下へのスワイプだけ。1回指を置くごとに最大1回
+  const pad=$('pad-chashu');let o=null;
+  pad.addEventListener('pointerdown',e=>{e.preventDefault();o=e.clientY;try{pad.setPointerCapture(e.pointerId);}catch(_){}});
+  pad.addEventListener('pointermove',e=>{
+    if(o===null)return;
+    if(e.clientY-o>=60){o=null;flash(pad,'dn',150);addProg('chashu',1/NEED.chashu,e.clientX,e.clientY);}
+  });
+  const end=()=>{o=null;};pad.addEventListener('pointerup',end);pad.addEventListener('pointercancel',end);
+})();
+document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>{S.tab=b.dataset.k;render();save();}));
+
+/* ============ 丼・売上 ============ */
+function sell(m,n){
+  const p=priceOf(m)*n;
+  S.ramen+=n;S.byMenu[m.id]=(S.byMenu[m.id]||0)+n;S.yen+=p;S.earned+=p;
+  return p;
+}
+$('bowl').addEventListener('click',()=>{
+  const b=$('bowl'),m=menu();
+  const n=Math.min(S.owner,canMake(m));
+  if(n<1){
+    const miss=K.filter(k=>S.stock[k]<m.need[k]);
+    b.classList.remove('no');void b.offsetWidth;b.classList.add('no');
+    floatAt(b,miss.map(k=>JP[k]).join('・')+'が足りない','bad');
+    S.tab=miss[0];render();return;
+  }
+  K.forEach(k=>S.stock[k]-=m.need[k]*n);
+  const p=sell(m,n);S.hand.bowl=(S.hand.bowl||0)+n;
+  b.classList.remove('pop');void b.offsetWidth;b.classList.add('pop');
+  floatAt(b,n>1?m.name+' '+n+'丁あがり！':'一丁あがり！','big');
+  setTimeout(()=>floatAt($('yen'),'+'+fmtY(p)+'円'),250);
+  checkAch();render();save();
+});
+function buildMenus(){
+  $('menus').innerHTML=MENUS.map(m=>`<button data-m="${m.id}"><b>${m.name}</b><small class="num"></small></button>`).join('');
+  $('menus').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    const m=MB[b.dataset.m];
+    if(!unlocked(m)){toast(`${m.name}ラーメンは実績${m.unlock}個で解禁<small>いま ${achCount()}個</small>`);return;}
+    S.menu=m.id;render();save();
+  }));
+}
+
+/* ============ 強化 ============ */
+function hire(k,el){if(!pay(crewCost(k)))return;S.crew[k]=crewN(k)+1;floatAt(el,CREW[k].name+' +1人');checkAch();render();save();}
+function train(k,el){if(!(k==='ramen'?ramenTotal():crewN(k))||!pay(trainCost(k)))return;S.lv[k]=lvOf(k)+1;floatAt(el,'Lv'+S.lv[k]+'に！');checkAch();render();save();}
+$('hire').addEventListener('click',()=>hire(S.tab,$('hire')));
+$('train').addEventListener('click',()=>train(S.tab,$('train')));
+$('rhire').addEventListener('click',()=>hire('r_'+S.menu,$('rhire')));
+$('rtrain').addEventListener('click',()=>train('ramen',$('rtrain')));
+$('widen').addEventListener('click',()=>{const k=S.tab;if(!pay(widenCost(k)))return;S.capLv[k]=capLv(k)+1;floatAt($('widen'),'置き場 '+cap(k)+'個');checkAch();render();save();});
+
+/* ============ 実績 ============ */
+function checkAch(silent){
+  const before=achCount();
+  for(const a of ACH){
+    if(!S.ach[a.id]&&a.test(S)){S.ach[a.id]=1;if(!silent)toast('実績解除：'+a.name+'<small>'+a.desc+'</small>');}
+  }
+  const after=achCount();
+  if(after>before&&!silent)MENUS.forEach(m=>{if(m.unlock>before&&m.unlock<=after)toast(m.name+'ラーメンが解禁された！<small>丼の上の献立から選べます</small>');});
+}
+
+/* ============ 時間経過 ============ */
+let lastT=performance.now(),achT=0;const rStall={},anim={noodle:0,chashu:0};
+function tick(){
+  const now=performance.now(),dt=Math.min(1,(now-lastT)/1000);lastT=now;
+  let changed=false;
+  for(const k of K){
+    const r=crewRate(k);if(!r)continue;
+    if(S.stock[k]>=cap(k)){S.acc[k]=0;continue;}
+    S.acc[k]=(S.acc[k]||0)+r*dt;
+    if(k==='soup'&&S.tab==='soup')spin(Math.min(r,3)*dt*2*Math.PI*NEED.soup*.6);
+    while(S.acc[k]>=1&&S.stock[k]<cap(k)){S.acc[k]-=1;S.stock[k]++;changed=true;if(S.tab===k)floatAt($('pad-'+k),JP[k]+' +1');}
+  }
+  // 盛り付け弟子：それぞれ自分の献立だけを作る（選択中の献立とは無関係）
+  for(const m of MENUS){
+    const k='r_'+m.id,rr=crewRate(k);rStall[m.id]='';
+    if(!rr)continue;
+    S.acc[k]=(S.acc[k]||0)+rr*dt;
+    while(S.acc[k]>=1){
+      if(canMake(m)<1){rStall[m.id]=K.filter(x=>S.stock[x]<m.need[x]).map(x=>JP[x]).join('・')+'待ち';S.acc[k]=Math.min(S.acc[k],1);break;}
+      S.acc[k]-=1;K.forEach(x=>S.stock[x]-=m.need[x]);const p=sell(m,1);changed=true;
+      if(rr<2||Math.random()<2/rr)floatAt($('yen'),'+'+fmtY(p)+'円');
+    }
+  }
+  // 麺・具の弟子が働いているアニメーション
+  for(const k of ['noodle','chashu']){
+    if(S.tab!==k||!crewN(k)||S.stock[k]>=cap(k)){anim[k]=0;continue;}
+    anim[k]+=dt;
+    if(anim[k]>=Math.max(.35,1.1-.06*crewN(k))){anim[k]=0;flash($('pad-'+k),k==='noodle'?'hit':'dn',k==='noodle'?110:150);}
+  }
+  achT+=dt;if(achT>.5){achT=0;checkAch();}
+  if(changed)render();else renderCrew();
+  if(!$('sheet').hidden)updateSheet();
+}
+
+/* ============ 描画 ============ */
+function renderCrew(){
+  const k=S.tab,full=S.stock[k]>=cap(k);
+  $('g-lab').textContent=JP[k]+' '+S.stock[k]+'/'+cap(k);
+  $('g-lab').classList.toggle('full',full);$('bar').classList.toggle('full',full);
+  $('prog').style.transform='scaleX('+(S.stock[k]/cap(k))+')';
+  const n=crewN(k),lv=lvOf(k),hc=crewCost(k),tc=trainCost(k),wc=widenCost(k);
+  $('crew-n').textContent='弟子 '+n+'人'+(n?' Lv'+lv:'');
+  $('crew-r').innerHTML=!n?'増やすと自動で'+JP[k]+'ができる':full?'<span class="full">置き場がいっぱいで休憩中</span>':'1分で約'+Math.round(crewRate(k)*60)+'個';
+  $('hire-c').textContent=fmtY(hc)+'円';$('hire').disabled=S.yen<hc;
+  $('train-c').textContent=fmtY(tc)+'円';$('train').disabled=!n||S.yen<tc;
+  $('train-n').textContent=n?'1分 '+Math.round(crewRate(k)*60)+'→'+Math.round(rateAt(k,lv+1)*60)+'個・雇う額 '+fmtY(hc)+'→'+fmtY(hireCostAt(k,lv+1))+'円':'弟子がいないと鍛えられない';
+  $('widen-c').textContent=fmtY(wc)+'円';$('widen').disabled=S.yen<wc;
+  // 盛り付け弟子
+  const m=menu(),rk='r_'+m.id,rn=crewN(rk),rl=lvOf('ramen'),rh=crewCost(rk),rt=trainCost('ramen'),tot=ramenTotal();
+  $('rc-n').textContent=m.name+'の盛り付け弟子 '+rn+'人'+(tot?' Lv'+rl:'');
+  $('rc-r').innerHTML=!rn?'この献立だけを自動でつくる':rStall[m.id]?'<span class="full">'+rStall[m.id]+'</span>':'1分で約'+(crewRate(rk)*60).toFixed(1).replace(/\.0$/,'')+'杯';
+  $('rhire-c').textContent=fmtY(rh)+'円';$('rhire').disabled=S.yen<rh;
+  $('rtrain-c').textContent=fmtY(rt)+'円';$('rtrain').disabled=!tot||S.yen<rt;
+  $('rtrain-n').hidden=!tot;
+  if(tot){const per=lv=>(CREW.ramen.rate*(1+CREW.ramen.lvUp*(lv-1))*60).toFixed(1);$('rtrain-n').textContent='鍛えると全献立の弟子が速くなる（1人 1分'+per(rl)+'→'+per(rl+1)+'杯）・雇う額も上がる';}
+  // 点：別タブや帳場で何か買える／新しい実績
+  document.querySelectorAll('.tabs button').forEach(b=>{const t=b.dataset.k;
+    b.classList.toggle('has',t!==k&&(S.yen>=crewCost(t)||S.yen>=widenCost(t)||(crewN(t)>0&&S.yen>=trainCost(t))));});
+  $('chou').classList.toggle('has',S.yen>=ownerCost()||achCount()>S.achSeen||norenGain()>0);
+  $('chou-s').textContent='店主Lv'+S.owner;
+  $('yen').textContent=Math.floor(S.yen).toLocaleString('ja-JP');
+}
+function render(){
+  $('count').textContent=S.ramen.toLocaleString('ja-JP');
+  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.k===S.tab));
+  const m=menu();
+  K.forEach(k=>{
+    $('pad-'+k).hidden=k!==S.tab;
+    $('tc-'+k).textContent=S.stock[k]+' / '+cap(k);
+    const el=$('m-'+k);el.querySelector('b').textContent=S.stock[k]+'/'+cap(k);
+    el.querySelector('i').textContent='×'+m.need[k];
+    el.classList.toggle('zero',S.stock[k]<m.need[k]);
+  });
+  $('menus').querySelectorAll('button').forEach(b=>{
+    const mm=MB[b.dataset.m],ok=unlocked(mm);
+    b.setAttribute('aria-pressed',mm.id===S.menu);b.classList.toggle('lock',!ok);
+    b.querySelector('b').textContent=ok?mm.name:'？？？';
+    const cn=crewN('r_'+mm.id);b.querySelector('small').textContent=ok?fmtY(priceOf(mm))+'円'+(cn?'・'+cn+'人':''):'実績'+mm.unlock;
+  });
+  const can=canMake(m)>=1;
+  $('bowl').classList.toggle('ok',can);$('filled').setAttribute('opacity',can?1:0);$('bowl-soup').setAttribute('fill',m.color);
+  $('tip').textContent=can?(S.owner>1?'丼タップで最大'+S.owner+'杯':'丼をタップして一杯つくる'):'そろったら丼をタップ';
+  const n=Math.min(S.stock.chashu,6);let h='';
+  for(let i=0;i<n;i++)h+=`<ellipse cx="${30+i*14}" cy="168" rx="9" ry="12" fill="#e2b29a" stroke="#b9694a" stroke-width="1.5"/>`;
+  $('slices').innerHTML=h;
+  renderCrew();
+}
+
+/* ============ 帳場シート ============ */
+let page='owner',armed=null;
+$('chou').addEventListener('click',()=>{$('sheet').hidden=false;showPage(page);});
+$('close').addEventListener('click',()=>{$('sheet').hidden=true;});
+$('sheet').addEventListener('click',e=>{if(e.target.id==='sheet')$('sheet').hidden=true;});
+$('shtabs').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.p)));
+function showPage(p){
+  page=p;armed=null;
+  $('shtabs').querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',b.dataset.p===p));
+  const B=$('shbody');
+  if(p==='owner'){
+    B.innerHTML=`<div class="card"><h3>店主 <span class="num" data-u="olv"></span></h3>
+      <p>手作業1回でできる材料の数が増えます。丼をタップしたときも、材料があればその杯数までまとめて盛ります。</p>
+      <p data-u="oeff"></p>
+      <button class="up" data-a="owner"><b>店主を鍛える</b><small class="num" data-u="ocost"></small></button></div>
+      <div class="card"><p>手作業の記録<br><span data-u="hand"></span></p></div>`;
+  }else if(p==='menu'){
+    B.innerHTML=MENUS.map(m=>`<div class="card"><div class="mrow" data-m="${m.id}"><span class="nm"></span><span class="rc"></span><span class="pr num"></span><span class="ct num"></span></div>
+      <button class="up" data-a="pick" data-id="${m.id}"><b></b></button></div>`).join('');
+  }else if(p==='ach'){
+    S.achSeen=achCount();
+    const grps=[...new Set(ACH.map(a=>a.grp))];
+    B.innerHTML=`<div class="achsum"><b class="num">${achCount()} / ${ACH.length}</b><span>実績の数で新しい献立が解禁されます</span></div>`+
+      grps.map(g=>`<div class="achgrp">${g}</div><div class="achs">`+ACH.filter(a=>a.grp===g).map(a=>`<div class="ach ${S.ach[a.id]?'got':''}"><b>${a.name}</b><small>${a.desc}</small></div>`).join('')+'</div>').join('');
+  }else if(p==='noren'){
+    B.innerHTML=`<div class="card"><h3>暖簾分け <small class="num" data-u="nnow"></small></h3>
+      <p>店を弟子に譲って、新しい店を一から始めます。売上・弟子・置き場・店主のレベルは最初に戻りますが、<b>暖簾1枚につき売上が${NOREN_BONUS*100}%増えます</b>。実績・献立の解禁・通算の記録はそのまま残ります。</p>
+      <p data-u="ninfo"></p>
+      <button class="up" data-a="noren"><b>暖簾分けする</b><small data-u="nbtn"></small></button></div>
+      <div class="card"><p>記録をすべて消して最初からやり直します。実績や暖簾も消えます。</p><button class="ghost" data-a="wipe">データをすべて消す</button></div>`;
+  }
+  updateSheet();
+}
+$('shbody').addEventListener('click',e=>{
+  const b=e.target.closest('[data-a]');if(!b||b.disabled)return;
+  const a=b.dataset.a;
+  if(a==='owner'){if(!pay(ownerCost()))return;S.owner++;toast('店主がLv'+S.owner+'に！<small>1回の作業で'+S.owner+'個できる</small>');checkAch();}
+  if(a==='pick'){S.menu=b.dataset.id;}
+  if(a==='noren'){
+    if(armed!=='noren'){armed='noren';updateSheet();return;}
+    const g=norenGain();if(g<1)return;
+    S.noren+=g;S.norenCount++;Object.assign(S,runState());S.tab='soup';armed=null;
+    toast('暖簾分けしました<small>暖簾 '+S.noren+'枚・売上 +'+Math.round(S.noren*NOREN_BONUS*100)+'%</small>');checkAch();
+  }
+  if(a==='wipe'){
+    if(armed!=='wipe'){armed='wipe';b.textContent='本当に消す（もう一度押す）';return;}
+    S=fresh();armed=null;toast('新しく開店しました');showPage('owner');
+  }
+  render();save();updateSheet();
+});
+function updateSheet(){
+  const B=$('shbody'),q=s=>B.querySelector('[data-u="'+s+'"]');
+  if(page==='owner'){
+    const c=ownerCost();
+    q('olv').textContent='Lv'+S.owner;
+    q('oeff').innerHTML='いま：1回で<b>'+S.owner+'個</b>　鍛えると：1回で<b>'+(S.owner+1)+'個</b>';
+    q('ocost').textContent=fmtY(c)+'円';B.querySelector('[data-a="owner"]').disabled=S.yen<c;
+    q('hand').textContent=K.map(k=>JP[k]+' '+kanji(S.hand[k]||0)+'個').join('・')+'・丼 '+kanji(S.hand.bowl||0)+'杯';
+  }else if(page==='menu'){
+    B.querySelectorAll('.mrow').forEach(r=>{
+      const m=MB[r.dataset.m],ok=unlocked(m);
+      r.classList.toggle('lock',!ok);
+      r.querySelector('.nm').textContent=ok?m.name:'？？？';
+      r.querySelector('.rc').textContent=ok?'スープ'+m.need.soup+'・麺'+m.need.noodle+'・具'+m.need.chashu:'実績'+m.unlock+'個で解禁（いま'+achCount()+'個）';
+      r.querySelector('.pr').textContent=ok?fmtY(priceOf(m))+'円':'';
+      r.querySelector('.ct').textContent=ok?'これまで '+kanji(S.byMenu[m.id]||0)+'杯':'';
+      const btn=r.parentNode.querySelector('[data-a="pick"]');
+      btn.disabled=!ok||S.menu===m.id;
+      btn.querySelector('b').textContent=!ok?'まだ作れない':S.menu===m.id?'いま作っている献立':'この献立にする';
+    });
+  }else if(page==='noren'){
+    const g=norenGain(),next=Math.pow(norenTotal(S.earned)+1,2)*NOREN_UNIT;
+    q('nnow').textContent='暖簾 '+S.noren+'枚・売上 +'+Math.round(S.noren*NOREN_BONUS*100)+'%';
+    q('ninfo').innerHTML='通算売上 <b>'+fmtY(S.earned)+'円</b><br>'+(g>0?'いま暖簾分けすると <b>暖簾 +'+g+'枚</b>':'次の暖簾まで あと '+fmtY(next-S.earned)+'円');
+    const btn=B.querySelector('[data-a="noren"]');btn.disabled=g<1;
+    btn.querySelector('b').textContent=armed==='noren'?'本当に暖簾分けする（もう一度押す）':'暖簾分けする';
+    q('nbtn').textContent=g>0?'暖簾 '+S.noren+'枚 → '+(S.noren+g)+'枚':'通算売上が足りない';
+  }
+}
+
+/* ============ 起動 ============ */
+function start(data){
+  S=(data&&data.state&&data.state.v===3&&data.state)||load()||fresh();
+  K.forEach(k=>{S.stock[k]=Math.min(S.stock[k],cap(k));S.prog[k]=0;});
+  if(!MB[S.menu])S.menu='shoyu';
+  if(S.crew.ramen){S.crew.r_shoyu=(S.crew.r_shoyu||0)+S.crew.ramen;delete S.crew.ramen;}
+  checkAch(true);buildMenus();render();
+  window.claude?.hot?.snapshot?.(()=>({state:S}));
+  setInterval(save,4000);setInterval(tick,100);
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)save();lastT=performance.now();});
+}
+window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
+})();
+</script>
